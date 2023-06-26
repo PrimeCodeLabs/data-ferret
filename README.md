@@ -52,25 +52,25 @@ let mut db = DataFerret::new("./path_to_your_db");
 Store a key-value pair:
 
 ```rust
-db.insert("key", "value").unwrap();
+db.insert("partition_key", "sort_key", "value").unwrap();
 ```
 
 Fetch a value by key:
 
 ```rust
-let value = db.fetch("key").unwrap();
+let value = db.fetch("partition_key", "sort_key").unwrap();
 ```
 
 Update a value:
 
 ```rust
-db.update("key", "new_value").unwrap();
+db.update("partition_key", "sort_key", "new_value").unwrap();
 ```
 
 Delete a value:
 
 ```rust
-db.delete("key").unwrap();
+db.delete("partition_key", "sort_key").unwrap();
 ```
 
 ## Contributing
