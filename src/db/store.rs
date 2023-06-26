@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use super::persistence::Data;
 
 pub struct Store {
-    data: HashMap<String, Data>,
+    data: HashMap<String, HashMap<String, Data>>,
 }
+
 
 impl Store {
     pub fn new() -> Self {
@@ -12,21 +13,24 @@ impl Store {
         }
     }
 
-    pub fn insert(&mut self, key: String, value: Data) {
-        self.data.insert(key, value);
+    pub fn insert(&mut self, partition_key: String, sort_key: String, value: Data) {
+        let partition = self.data.entry(partition_key).or_insert_with(HashMap::new);
+        partition.insert(sort_key, value);
     }
+    
 
-    pub fn get(&self, key: &String) -> Option<&Data> {
-        self.data.get(key)
+    pub fn get(&self, partition_key: &String, sort_key: &String) -> Option<&Data> {
+        self.data.get(partition_key).and_then(|partition| partition.get(sort_key))
     }
+    
 
-    // Delete a key-value pair
-    pub fn delete(&mut self, key: &String) {
-        self.data.remove(key);
+    pub fn delete(&mut self, partition_key: &String, sort_key: &String) {
+        if let Some(partition) = self.data.get_mut(partition_key) {
+            partition.remove(sort_key);
+        }
     }
-
-    // Load all data into the store
-    pub fn load_all(&mut self, data: HashMap<String, Data>) {
+    
+    pub fn load_all(&mut self, data: HashMap<String, HashMap<String, Data>>) {
         self.data = data;
-    }
+    }    
 }
