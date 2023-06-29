@@ -2,14 +2,18 @@
 
 ## Description
 
-DataFerret is a simple key-value store written in Rust. It's designed to be lightweight, fast, and easy to use, making it a great choice for small projects where a full database might be overkill.
+DataFerret is a simple key-value store written in Rust, designed to store data as partition and sort key pairs. It's designed to be lightweight, fast, and easy to use, making it a great choice for small to medium-sized projects where a full database might be overkill. With features like batch operations and concurrent inserts, it offers performance and functionality while maintaining simplicity.
 
-![DataFerret Logo](./logo.png)
+<div style="text-align:center">
+    <img src="./logo.png" alt="DataFerret Logo" width="600"/>
+</div>
 
 ## Features
 
-- Store data as key-value pairs
+- Store data as partition-sort key pairs
 - Fast retrieval, update, and deletion of data
+- Supports batch operations for efficient multiple data inserts
+- Concurrent insert operations for improved performance
 - Lightweight and efficient
 - Written in Rust
 
@@ -40,13 +44,14 @@ cargo test
 Include the following in your Rust code:
 
 ```rust
-use data_ferret::DataFerret;
+use data_ferret::db::Database;
+use data_ferret::db::{Data, OperationType};
 ```
 
-Create an instance of DataFerret:
+Create an instance of Database:
 
 ```rust
-let mut db = DataFerret::new("./path_to_your_db");
+let mut db = Database::new("./path_to_your_db");
 ```
 
 Store a key-value pair:
@@ -58,19 +63,29 @@ db.insert("partition_key", "sort_key", "value").unwrap();
 Fetch a value by key:
 
 ```rust
-let value = db.fetch("partition_key", "sort_key").unwrap();
+let value = db.get("partition_key", "sort_key").unwrap();
 ```
 
 Update a value:
 
 ```rust
-db.update("partition_key", "sort_key", "new_value").unwrap();
+db.insert("partition_key", "sort_key", "new_value").unwrap();
 ```
 
 Delete a value:
 
 ```rust
 db.delete("partition_key", "sort_key").unwrap();
+```
+
+Perform a batch operation:
+
+```rust
+let data = vec![
+    Data { operation_type: OperationType::Insert, partition_key: "partition1".to_string(), sort_key: "sort1".to_string(), value: "value1".to_string() },
+    Data { operation_type: OperationType::Insert, partition_key: "partition2".to_string(), sort_key: "sort2".to_string(), value: "value2".to_string() },
+];
+db.batch(data).unwrap();
 ```
 
 ## Contributing
