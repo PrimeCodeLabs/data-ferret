@@ -1,9 +1,11 @@
-use data_ferret::db::{Database, Data};
+use data_ferret::db::{Database, Data, OperationType};
 use std::path::PathBuf;
 use std::fs;
 
 #[cfg(test)]
 mod tests {
+
+    use std::{thread, sync::{Arc, Mutex}};
 
     use super::*;
 
@@ -29,7 +31,7 @@ mod tests {
         database.insert(partition_key.clone(), sort_key.clone(), value.clone()).unwrap();
 
         let result = database.get(partition_key.clone(), sort_key.clone()).unwrap();
-        assert_eq!(Some(Data { partition_key, sort_key, value }), result);
+        assert_eq!(Some(Data {operation_type:OperationType::Insert, partition_key, sort_key, value }), result);
 
         teardown(path);
     }
@@ -38,20 +40,21 @@ mod tests {
     fn test_update() {
         let path = setup("./test_db2");
         let mut database = Database::new(path.clone());
-
+    
         let partition_key = "partition".to_string();
         let sort_key = "sort".to_string();
         let value = "value".to_string();
         let updated_value = "updated_value".to_string();
-
+    
         database.insert(partition_key.clone(), sort_key.clone(), value.clone()).unwrap();
         database.insert(partition_key.clone(), sort_key.clone(), updated_value.clone()).unwrap();
-
+    
         let result = database.get(partition_key.clone(), sort_key.clone()).unwrap();
-        assert_eq!(Some(Data { partition_key, sort_key, value: updated_value }), result);
-
+        assert_eq!(Some(Data { operation_type: OperationType::Insert, partition_key, sort_key, value: updated_value }), result);
+    
         teardown(path);
     }
+    
 
     #[test]
     fn test_delete() {
@@ -100,4 +103,131 @@ mod tests {
         teardown(path);
     }
     
+    #[test]
+    fn test_concurrent_insert() {
+        let path = setup("./test_db4");
+        let database = Database::new(path.clone());
+        let database = Arc::new(Mutex::new(database));
+        let mut handles = vec![];
+    
+        for i in 0..10 {
+            let database = Arc::clone(&database);
+            let handle = thread::spawn(move || {
+                let partition_key = format!("partition{}", i);
+                let sort_key = format!("sort{}", i);
+                let value = format!("value{}", i);
+                database.lock().unwrap().insert(partition_key, sort_key, value).unwrap();
+            });
+            handles.push(handle);
+        }
+    
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    
+        let mut database = Arc::try_unwrap(database).unwrap().into_inner().unwrap();
+        
+        for i in 0..10 {
+            let partition_key = format!("partition{}", i);
+            let sort_key = format!("sort{}", i);
+            let result = database.get(partition_key.clone(), sort_key.clone()).unwrap();
+            assert_eq!(Some(Data {operation_type: OperationType::Insert, partition_key, sort_key, value: format!("value{}", i) }), result);
+        }
+        
+        teardown(path);
+    }
+
+    #[test]
+    fn test_batch() {
+        let path = setup("./test_db5");
+        let mut database = Database::new(path.clone());
+    
+        let data = vec![
+            Data { 
+                operation_type: OperationType::Insert,
+                partition_key: "partition1".to_string(), 
+                sort_key: "sort1".to_string(), 
+                value: "value1".to_string() 
+            },
+            Data { 
+                operation_type: OperationType::Insert,
+                partition_key: "partition2".to_string(), 
+                sort_key: "sort2".to_string(), 
+                value: "value2".to_string() 
+            },
+        ];
+    
+        database.batch(data).unwrap();
+    
+        let result1 = database.get("partition1".to_string(), "sort1".to_string()).unwrap();
+        assert_eq!(Some(Data { operation_type: OperationType::Insert, partition_key: "partition1".to_string(), sort_key: "sort1".to_string(), value: "value1".to_string() }), result1);
+    
+        let result2 = database.get("partition2".to_string(), "sort2".to_string()).unwrap();
+        assert_eq!(Some(Data { operation_type: OperationType::Insert, partition_key: "partition2".to_string(), sort_key: "sort2".to_string(), value: "value2".to_string() }), result2);
+    
+        teardown(path);
+    }
+
+    #[test]
+    fn test_insert_nonexistent_key() {
+        let path = setup("./test_db6");
+        let mut database = Database::new(path.clone());
+
+        let partition_key = "nonexistent".to_string();
+        let sort_key = "nonexistent".to_string();
+        let value = "value".to_string();
+
+        let result = database.insert(partition_key.clone(), sort_key.clone(), value.clone());
+        assert!(result.is_ok(), "Failed to insert value for nonexistent key");
+
+        teardown(path);
+    }
+
+    #[test]
+    fn test_concurrent_update() {
+        let path = setup("./test_db7");
+        let database = Database::new(path.clone());
+        let database = Arc::new(Mutex::new(database));
+        let mut handles = vec![];
+
+        for _ in 0..10 {
+            let database = Arc::clone(&database);
+            let handle = thread::spawn(move || {
+                let partition_key = "concurrent".to_string();
+                let sort_key = "concurrent".to_string();
+                let value = format!("value{}", rand::random::<u32>());
+                database.lock().unwrap().insert(partition_key, sort_key, value).unwrap();
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let mut database = Arc::try_unwrap(database).unwrap().into_inner().unwrap();
+        let result = database.get("concurrent".to_string(), "concurrent".to_string()).unwrap();
+        assert!(result.is_some(), "Failed to get value after concurrent updates");
+
+        teardown(path);
+    }
+
+    #[test]
+    fn test_insert_empty_value() {
+        let path = setup("./test_db8");
+        let mut database = Database::new(path.clone());
+
+        let partition_key = "empty".to_string();
+        let sort_key = "empty".to_string();
+        let value = "".to_string();
+
+        let result = database.insert(partition_key.clone(), sort_key.clone(), value.clone());
+        assert!(result.is_ok(), "Failed to insert empty value");
+
+        let result = database.get(partition_key.clone(), sort_key.clone()).unwrap();
+        assert_eq!(Some(Data { operation_type: OperationType::Insert, partition_key, sort_key, value }), result);
+
+        teardown(path);
+    }
+      
 }
