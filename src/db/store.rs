@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use super::persistence::Data;
 
+#[derive(Debug)]
 pub struct Store {
     data: HashMap<String, HashMap<String, Data>>,
 }

@@ -5,12 +5,22 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum OperationType {
+    Insert,
+    Update,
+    Delete,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
 pub struct Data {
+    pub operation_type: OperationType,
     pub partition_key: String,
     pub sort_key: String,
     pub value: String,
 }
 
+#[derive(Debug)]
 pub struct Persistence {
     path: PathBuf,
     
