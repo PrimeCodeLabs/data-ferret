@@ -2,7 +2,7 @@
 
 ## Description
 
-DataFerret is a simple key-value store written in Rust, designed to store data as partition and sort key pairs. This flexible model allows for more complex and efficient data structures and lookups compared to traditional key-value stores. With DataFerret, you can build high-performance applications that are lightweight and efficient, while leveraging the power and safety of the Rust language.
+DataFerret is a simple key-value store written in Rust, designed to store data as partition and sort key pairs. It supports both disk-based and in-memory storage modes, providing flexibility based on your needs. This flexible model allows for more complex and efficient data structures and lookups compared to traditional key-value stores. With DataFerret, you can build high-performance applications that are lightweight and efficient, while leveraging the power and safety of the Rust language.
 
 <div style="text-align:center">
     <img src="./logo.png" alt="DataFerret Logo" width="300"/>
@@ -12,6 +12,7 @@ DataFerret is a simple key-value store written in Rust, designed to store data a
 
 - Store data as partition-sort key pairs
 - Fast and efficient data retrieval, update, and deletion
+- Disk-based and in-memory storage modes
 - Batch operation support for efficient multiple data inserts
 - Concurrent insert operations for improved performance
 - Lightweight design with a focus on performance and simplicity
@@ -45,7 +46,7 @@ cargo test
 Include the following in your Rust code:
 
 ```rust
-use data_ferret::db::Database;
+use data_ferret::db::{Database, InMemoryDatabase, DatabaseType};
 use data_ferret::db::{Data, OperationType};
 ```
 
@@ -55,7 +56,13 @@ Specify the path to your database directory and create a new Database instance:
 
 ```rust
 let path = std::path::PathBuf::from("./my_database_dir");
-let mut db = Database::new(path);
+let mut db: Box<dyn DatabaseType> = Box::new(Database::new(path));
+```
+
+Or create a new InMemoryDatabase instance for in-memory operations:
+
+```rust
+let mut db: Box<dyn DatabaseType> = Box::new(InMemoryDatabase::new());
 ```
 
 ### Storing Data
@@ -67,7 +74,7 @@ let partition_key = "my_partition_key".to_string();
 let sort_key = "my_sort_key".to_string();
 let value = "my_value".to_string();
 
-db.insert(partition_key.clone(), sort_key.clone(), value.clone()).expect("Failed to insert data");
+db.insert(partition_key.clone(), sort_key.clone(), value.clone());
 ```
 
 ### Retrieving Data
@@ -76,19 +83,9 @@ Fetch a value by its partition key and sort key:
 
 ```rust
 match db.get(partition_key, sort_key) {
-    Ok(Some(data)) => println!("Retrieved data: {:?}", data),
-    Ok(None) => println!("No data found"),
-    Err(e) => println!("Failed to get data: {}", e),
+    Some(data) => println!("Retrieved data: {:?}", data),
+    None => println!("No data found"),
 }
-```
-
-### Updating Data
-
-Update the value of a key-value pair:
-
-```rust
-let new_value = "my_new_value".to_string();
-db.insert(partition_key.clone(), sort_key.clone(), new_value.clone()).expect("Failed to update data");
 ```
 
 ### Deleting Data
@@ -96,12 +93,12 @@ db.insert(partition_key.clone(), sort_key.clone(), new_value.clone()).expect("Fa
 Delete a key-value pair by its partition key and sort key:
 
 ```rust
-db.delete(partition_key, sort_key).unwrap();
+db.delete(partition_key, sort_key);
 ```
 
 ### Batch Operations
 
-Perform batch operations by providing a vector of `Data` objects, each representing a separate operation:
+Perform batch operations by providing a vector of `Data` objects, each representing a separate operation (This feature is currently supported only for the disk-based `Database` type):
 
 ```rust
 let data = vec![

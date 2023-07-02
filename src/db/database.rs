@@ -81,3 +81,37 @@ impl Database {
     
 
 }
+
+pub struct InMemoryDatabase {
+    store: Store,
+}
+
+impl InMemoryDatabase {
+    pub fn new() -> Self {
+        InMemoryDatabase {
+            store: Store::new(),
+        }
+    }
+
+    pub fn get(&mut self, partition_key: String, sort_key: String) -> Option<Data> {
+        self.store.get(&partition_key, &sort_key).cloned()
+    }
+
+    pub fn get_all(&mut self, partition_key: String) -> Option<Vec<Data>> {
+        self.store.get_all(&partition_key).map(|partition| partition.values().cloned().collect())
+    }
+
+    pub fn insert(&mut self, partition_key: String, sort_key: String, value: String) {
+        let data = Data { 
+            operation_type: OperationType::Insert,
+            partition_key: partition_key.clone(), 
+            sort_key: sort_key.clone(), 
+            value 
+        };
+        self.store.insert(partition_key, sort_key, data);
+    }
+
+    pub fn delete(&mut self, partition_key: String, sort_key: String) {
+        self.store.delete(&partition_key, &sort_key);
+    }
+}

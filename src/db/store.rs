@@ -23,6 +23,10 @@ impl Store {
     pub fn get(&self, partition_key: &String, sort_key: &String) -> Option<&Data> {
         self.data.get(partition_key).and_then(|partition| partition.get(sort_key))
     }
+
+    pub fn get_all(&self, partition_key: &String) -> Option<&HashMap<String, Data>> {
+        self.data.get(partition_key)
+    }
     
 
     pub fn delete(&mut self, partition_key: &String, sort_key: &String) {
